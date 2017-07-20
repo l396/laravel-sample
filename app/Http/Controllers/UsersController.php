@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Http\Requests;
 use App\Http\Controllers\Controller;
 use Auth;
+use Mail;
 
 class UsersController extends Controller
 {
@@ -53,8 +54,36 @@ class UsersController extends Controller
             'password' => bcrypt($request->password),
         ]);
 
-        Auth::login($user);
+        //Auth::login($user);
+        $this->sendEmailConfirmationTo($user);
         session()->flash('success', '欢迎，您将在这里开启一段新的旅程~');
+        return redirect()->route('users.show', [$user]);
+    }
+
+    protected function sendEmailConfirmationTo($user)
+    {
+        $view = 'emails.confirm';
+        $data = compact('user');
+        $from = 'l396@hotmail.com';
+        $name = 'Laravel.CN';
+        $to = $user->email;
+        $subject = "感谢注册 Sample 应用！请确认你的邮箱。";
+
+        Mail::send($view, $data, function ($message) use ($from, $name, $to, $subject) {
+            $message->from($from, $name)->to($to)->subject($subject);
+        });
+    }
+
+    public function confirmEmail($token)
+    {
+        $user = User::where('activation_token', $token)->firstOrFail();
+
+        $user->activated = true;
+        $user->activation_token = null;
+        $user->save();
+
+        Auth::login($user);
+        session()->flash('success', '恭喜你，激活成功！');
         return redirect()->route('users.show', [$user]);
     }
 
